@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -17,28 +16,56 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
-
-	 //_ "github.com/Eursukkul/fiber-booking-system/docs"
+	"github.com/sirupsen/logrus"
+	//_ "github.com/Eursukkul/fiber-booking-system/docs"
 )
+
 // @title Fiber Booking System API
 // @version 1.0
 // @description Booking system API with Fiber framework
 // @host localhost:3000
 // @BasePath /api
 func main() {
+	// Initialize structured logger
+	logger := utils.InitLogger()
+	logger.Info("Starting Fiber Booking System API")
+
 	config, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logger.WithError(err).Fatal("Failed to load config")
 	}
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			traceID, ok := c.Locals("trace_id").(string)
+			if !ok {
+				traceID = utils.GenerateTraceID()
+			}
+
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+
+			utils.LogError(traceID, err, "Error handling request", map[string]interface{}{
+				"path":   c.Path(),
+				"method": c.Method(),
+				"status": code,
+			})
+
+			return c.Status(code).JSON(fiber.Map{
+				"error":    err.Error(),
+				"trace_id": traceID,
+			})
+		},
+	})
 
 	//Allow all origins
 	app.Use(cors.New(cors.Config{
-        AllowOrigins: "*",                // Allow all origins
-        AllowHeaders: "Origin, Content-Type, Accept",
-        AllowMethods: "GET,POST,DELETE",
-    }))
+		AllowOrigins: "*", // Allow all origins
+		AllowHeaders: "Origin, Content-Type, Accept, X-Trace-ID",
+		AllowMethods: "GET,POST,DELETE",
+	}))
 
 	loggerMiddleware := middleware.NewLoggerMiddleware()
 	// authMiddleware := middleware.NewAuthMiddleware()
@@ -53,6 +80,14 @@ func main() {
 
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
+	// Health check endpoint
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":  "ok",
+			"service": "psd-fiber-booking-system",
+		})
+	})
+
 	var wg sync.WaitGroup
 	bookingUsecase.BackgroundTaskBooking(&wg)
 
@@ -61,20 +96,24 @@ func main() {
 
 	go func() {
 		<-quit
-		log.Println("Shutting down server...")
+		logger.Info("Shutting down server...")
 
 		wg.Wait()
 
 		if err := app.Shutdown(); err != nil {
-			log.Fatalf("Error shutting down server: %v", err)
+			logger.WithError(err).Error("Error shutting down server")
 		}
 
-		log.Println("Server shut down gracefully")
+		logger.Info("Server shut down gracefully")
 	}()
 
-	log.Printf("Server is running on %s", config.Port)
+	logger.WithFields(logrus.Fields{
+		"port": config.Port,
+		"env":  os.Getenv("ENV"),
+	}).Info("Server is running")
+
 	if err := app.Listen(config.Port); err != nil {
-		log.Fatalf("Error starting server: %v", err)
+		logger.WithError(err).Fatal("Error starting server")
 	}
 
 }
