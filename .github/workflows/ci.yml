@@ -60,12 +60,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Docker Hub
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # Docker Hub login - disabled temporarily
+      # - name: Login to Docker Hub
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata for Docker
         id: meta
@@ -73,7 +74,7 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/psd-fiber-booking-system
+            # ${{ secrets.DOCKERHUB_USERNAME }}/psd-fiber-booking-system
           tags: |
             type=ref,event=branch
             type=ref,event=pr
