@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+vendor
+.env
+*.log
+tests
+docs
+*.md
+*.swp
+*.tmp
+**/*_test.go
+bin
+dist

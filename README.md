@@ -337,5 +337,39 @@ All errors follow this format:
 ```json
 {
     "message": "Error description"
+## 🚢 Deployment
+
+You can deploy this app as a Docker container (recommended) or use the included GitHub Actions workflow to build and publish an image to GitHub Container Registry (GHCR).
+
+1) Build & run locally with Docker (PowerShell example):
+
+```powershell
+# build the image (run from project root)
+docker build -t fiber-booking:local .
+
+# run the container (bind port 3000)
+docker run --rm -p 3000:3000 -e PORT=3000 -e JWT_SECRET=secret -e API_KEY=key fiber-booking:local
+```
+
+The server will be available at http://localhost:3000 and the swagger UI at /swagger/index.html
+
+2) GitHub Actions CI (automatic build + push to GHCR)
+
+- The workflow `.github/workflows/ci.yml` runs tests, builds the Go binary, builds a Docker image and pushes it to GitHub Container Registry (GHCR) at `ghcr.io/<ORG>/<REPO>:latest`.
+- The workflow uses the repo's `GITHUB_TOKEN` with `packages: write` permission so no extra secret is required to publish to GHCR. If you prefer Docker Hub or another registry, update the workflow and add the appropriate secrets.
+
+3) Pull & run published image from GHCR
+
+```powershell
+# example (replace ORG/REPO accordingly)
+docker pull ghcr.io/<ORG>/<REPO>:latest
+docker run --rm -p 3000:3000 -e PORT=3000 ghcr.io/<ORG>/<REPO>:latest
+```
+
+Notes and tips:
+- If you need a smaller image or different architecture, adjust the `Dockerfile` build stage (GOARCH/GOOS) accordingly.
+- For production, prefer setting real secrets through your host or orchestration platform (Kubernetes secrets, cloud service env vars, etc.).
+- To push to Docker Hub instead, replace the login/build-push steps in the CI workflow with Docker Hub credentials stored in repository secrets.
+
 }
 ````
